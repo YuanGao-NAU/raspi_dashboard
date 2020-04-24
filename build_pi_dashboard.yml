@@ -1,0 +1,135 @@
+
+---
+
+- hosts: localhost
+
+  vars:
+     pd_dir:       /var/www/html/pi-dashboard
+     database:            "{{ DATABASE | default('sqlite') }}"
+     mysql_root_password: '{{ MYSQL_ROOT_PASSWORD }}'
+
+  tasks:
+
+     - name: Install Apache
+       apt:
+          name: apache2
+          state: present
+          update_cache: yes
+
+
+     #######################################################
+     # Install MySQL and associated packages, if required
+     #######################################################
+
+     - name: Install MySQL and associated packages for Raspbian Buster
+       apt:
+          pkg:
+             - mariadb-server
+             - python-mysqldb
+             - php-mysql
+          state: present
+       when: database == 'mysql' and ansible_distribution_release == 'buster'
+
+     - name: Install MySQL and associated packages for Raspbian Stretch
+       apt:
+          pkg:
+             - mysql-server
+             - python-mysqldb
+             - php7.0-mysql
+          state: present
+       when: database == 'mysql' and ansible_distribution_release == 'stretch'
+
+     - name: Install MySQL and associated packages for Raspbian Jessie
+       apt:
+          pkg:
+             - mysql-server
+             - python-mysqldb
+             - php5-mysql
+          state: present
+       when: database == 'mysql' and ansible_distribution_release == 'jessie'
+
+
+
+     #######################################################
+     # Configure MySQL, if required
+     #######################################################
+
+     - name: Set the MySQL root password 
+       mysql_user: 
+          user: root 
+          password: '{{ mysql_root_password }}'
+          host: localhost
+       when: database == 'mysql'
+
+
+     ###################################################
+     # Install php packages required by wordpress
+     ###################################################
+
+     - name: Install php 7.3 packages for Raspbian Buster
+       apt:
+          pkg:
+             - php
+             - php-gd
+             - sqlite
+             - php-sqlite3
+             - php-curl
+             - php-zip
+             - php-xml
+             - php-mbstring
+             - libapache2-mod-php
+          state: present
+       when: ansible_distribution_release == 'buster'
+
+     - name: Install php 7.0 packages for Raspbian Stretch
+       apt:
+          pkg:
+             - php7.0
+             - php7.0-gd
+             - php7.0-sqlite3
+             - php7.0-curl
+             - php7.0-zip
+             - php7.0-xml
+             - php7.0-mbstring
+             - libapache2-mod-php7.0
+          state: present
+       when: ansible_distribution_release == 'stretch'
+
+     - name: Install php 5 packages for Raspbian Jessie
+       apt:
+          pkg:
+             - php5
+             - php5-gd
+             - php5-sqlite
+             - php5-curl
+          state: present
+       when: ansible_distribution_release == 'jessie'
+
+
+
+
+     ###################################################
+     # Install pi-dashboard
+     ###################################################
+
+     - git:
+         repo: 'https://github.com/spoonysonny/pi-dashboard.git'
+         dest: '{{pd_dir}}'
+         clone: yes
+
+     - name: Set pi-dashboard directory ownerships
+       file:
+          path: '{{pd_dir}}'
+          owner: www-data
+          group: www-data
+          mode: 0755
+          recurse: yes
+
+
+     - name: Restart Apache
+       service:
+          name: apache2
+          state: restarted
+          enabled: yes
+
+
